@@ -747,6 +747,7 @@ function AppContent({
                     </>
                 )}
             </AppLayout>
+            </ErrorBoundary>
 
             {/* Onboarding Tour */}
             {shouldShowTour && mode === "individual" && (

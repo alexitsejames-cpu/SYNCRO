@@ -2,6 +2,7 @@ import logger from '../config/logger';
 import { supabase } from '../config/database';
 import { emailService } from './email-service';
 import { pushService, PushSubscription } from './push-service';
+import { telegramBotService } from './telegram-bot-service';
 import { blockchainService } from './blockchain-service';
 import {
   ReminderSchedule,
@@ -96,7 +97,7 @@ export class ReminderEngine {
         try {
           // Check if it's an appropriate time to send delayed notifications
           const userPreferences = await userPreferenceService.getPreferences(delayedNotification.user_id);
-          
+
           if (!quietHoursService.isAppropriateTimeForDelayedNotifications(userPreferences)) {
             logger.debug(`Skipping delayed notification ${delayedNotification.id} - not appropriate time`);
             continue;
@@ -104,10 +105,10 @@ export class ReminderEngine {
 
           // Send the delayed notification
           await this.sendDelayedNotification(delayedNotification);
-          
+
           // Mark as sent
           await delayedNotificationService.markDelayedNotificationAsSent(delayedNotification.id);
-          
+
           logger.info(`Delayed notification ${delayedNotification.id} sent successfully`);
         } catch (error) {
           logger.error(`Failed to process delayed notification ${delayedNotification.id}:`, error);
@@ -240,7 +241,7 @@ export class ReminderEngine {
   private async sendDelayedNotification(delayedNotification: any): Promise<void> {
     const payload = delayedNotification.notification_payload;
     const userPreferences = await userPreferenceService.getPreferences(delayedNotification.user_id);
-    
+
     // Get user profile for email
     const userProfile = await this.getUserProfile(delayedNotification.user_id);
     if (!userProfile) {
@@ -260,6 +261,16 @@ export class ReminderEngine {
       if (pushSubscription) {
         await pushService.sendPushNotification(pushSubscription, payload, { maxAttempts: 1 });
       }
+    }
+
+    // Telegram delivery
+    if (deliveryChannels.includes('telegram') && telegramBotService.isConfigured()) {
+      await telegramBotService.sendRenewalReminder(
+        delayedNotification.user_id,
+        payload,
+        undefined,
+        { maxAttempts: 1 }
+      );
     }
   }
 
@@ -439,10 +450,10 @@ export class ReminderEngine {
       payload.priority = quietHoursService.determineNotificationPriority(payload);
 
       const preferences = await userPreferenceService.getPreferences(reminder.user_id);
-      
+
       // Check quiet hours
       const quietHoursCheck = quietHoursService.shouldSendDuringQuietHours(preferences, payload);
-      
+
       if (quietHoursCheck.shouldDelay) {
         // Store notification for later delivery
         await delayedNotificationService.storeDelayedNotification(
@@ -453,7 +464,7 @@ export class ReminderEngine {
           payload.priority!,
           quietHoursCheck.reason
         );
-        
+
         // Mark reminder as sent (it's scheduled for later)
         await supabase
           .from('reminder_schedules')
@@ -462,7 +473,7 @@ export class ReminderEngine {
             updated_at: new Date().toISOString(),
           })
           .eq('id', reminder.id);
-          
+
         logger.info(`Reminder ${reminder.id} delayed due to quiet hours until ${quietHoursCheck.delayUntil?.toISOString()}`);
         return;
       }
@@ -526,6 +537,34 @@ export class ReminderEngine {
             `No push subscription found for user ${reminder.user_id}, skipping push delivery`,
           );
         }
+      }
+
+      // Telegram delivery
+      if (deliveryChannels.includes('telegram') && telegramBotService.isConfigured()) {
+        const telegramDelivery = await this.createDeliveryRecord(
+          reminder.id,
+          reminder.user_id,
+          'telegram',
+        );
+        deliveries.push(telegramDelivery);
+
+        const telegramResult = await telegramBotService.sendRenewalReminder(
+          reminder.user_id,
+          payload,
+          undefined, // Let service look up chat ID
+          { maxAttempts: this.maxRetryAttempts },
+        );
+
+        await this.updateDeliveryRecord(
+          telegramDelivery.id,
+          telegramResult.success ? 'sent' : 'failed',
+          telegramResult.error,
+          telegramResult.metadata,
+        );
+      } else if (deliveryChannels.includes('telegram') && !telegramBotService.isConfigured()) {
+        logger.debug(
+          `Telegram delivery requested for user ${reminder.user_id} but service not configured`,
+        );
       }
 
       await blockchainService.logReminderEvent(
@@ -606,6 +645,13 @@ export class ReminderEngine {
         if (!result.success && result.metadata?.retryable === false) {
           await this.removeStalePushSubscription(delivery.user_id);
         }
+      } else if (delivery.channel === 'telegram') {
+        result = await telegramBotService.sendRenewalReminder(
+          delivery.user_id,
+          payload,
+          undefined,
+          { maxAttempts: 1 }
+        );
       } else {
         await this.markDeliveryAsFailed(delivery.id, `Unknown channel: ${delivery.channel}`);
         return;
@@ -895,7 +941,7 @@ export class ReminderEngine {
   private async createDeliveryRecord(
     reminderScheduleId: string,
     userId: string,
-    channel: 'email' | 'push',
+    channel: 'email' | 'push' | 'telegram',
   ): Promise<NotificationDelivery> {
     const { data, error } = await supabase
       .from('notification_deliveries')

@@ -14,7 +14,7 @@ export interface NotificationDelivery {
   id: string;
   reminder_schedule_id: string;
   user_id: string;
-  channel: 'email' | 'push';
+  channel: 'email' | 'push' | 'telegram';
   status: 'pending' | 'sent' | 'failed' | 'retrying';
   attempt_count: number;
   max_attempts: number;
@@ -88,7 +88,7 @@ export interface DeliveryResult {
 
 export interface UserPreferences {
   user_id: string;
-  notification_channels: ('email' | 'push')[];
+  notification_channels: ('email' | 'push' | 'telegram')[];
   reminder_timing: number[]; // days before
   email_opt_ins: {
     marketing: boolean;

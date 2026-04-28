@@ -42,6 +42,8 @@ import mfaRoutes from './routes/mfa';
 import pushNotificationRoutes from './routes/push-notifications';
 import referralRoutes from './routes/referrals';
 import suggestionRoutes from './routes/suggestions';
+import telegramWebhookRoutes from './routes/telegram-webhook';
+import cspViolationsRoutes from '../routes/csp-violations';
 import gmailRouter from '../routes/integrations/gmail'
 import outlookRouter from '../routes/integrations/outlook'
 import { createExchangeRatesRouter } from './routes/exchange-rates';
@@ -58,6 +60,7 @@ import { adminAuth } from './middleware/admin';
 import { csrfProtection } from './middleware/csrf';
 import { createAdminLimiter, RateLimiterFactory } from './middleware/rate-limit-factory';
 import { scheduleAutoResume } from './jobs/auto-resume';
+import { startCspMonitoringJobs, stopCspMonitoringJobs } from './jobs/csp-monitoring-job';
 import { errorHandler } from './middleware/errorHandler';
 import { swaggerSpec } from './swagger';
 
@@ -138,6 +141,8 @@ app.use('/api/mfa', mfaRoutes);
 app.use('/api/notifications/push', pushNotificationRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/suggestions', suggestionRoutes);
+app.use('/api/telegram', telegramWebhookRoutes);
+app.use('/api/csp-violations', cspViolationsRoutes);
 app.use('/api/exchange-rates', createExchangeRatesRouter(exchangeRateService));
 
 app.get('/api/reminders/status', (req, res) => {
@@ -259,9 +264,9 @@ export function validateMnemonic(mnemonic: string): boolean {
 const HEALTH_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000;
 function startHealthSnapshotInterval() {
   setInterval(() => {
-    healthService.recordSnapshot().catch(() => {});
+    healthService.recordSnapshot().catch(() => { });
   }, HEALTH_SNAPSHOT_INTERVAL_MS);
-  setTimeout(() => healthService.recordSnapshot().catch(() => {}), 5000);
+  setTimeout(() => healthService.recordSnapshot().catch(() => { }), 5000);
 }
 
 // Start Server
@@ -295,6 +300,8 @@ const server = app.listen(PORT, async () => {
   }
 
   scheduleAutoResume();
+  startCspMonitoringJobs();
+  logger.info('CSP monitoring jobs scheduled');
   void startIndexer();
 });
 
@@ -303,6 +310,7 @@ const shutdown = () => {
   logger.info('Shutting down gracefully');
   schedulerService.stop();
   eventListener.stop();
+  stopCspMonitoringJobs();
   stopIndexer();
   server.close(() => {
     logger.info('Server closed');

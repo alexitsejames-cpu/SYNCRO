@@ -201,7 +201,7 @@ export function useSubscriptions({
             label: "Undo",
             onClick: async () => {
               try {
-                await deleteSubscription(dbSubscription.id);
+                await dbDeleteSubscription(dbSubscription.id);
                 undo();
                 onToast({
                   title: "Undone",

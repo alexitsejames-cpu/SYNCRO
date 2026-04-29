@@ -42,4 +42,44 @@ router.get('/budgets', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * GET /api/analytics/spending
+ * Get spending trends
+ */
+router.get('/spending', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const spending = await analyticsService.getSpending(req.user!.id);
+    res.json({
+      success: true,
+      data: spending
+    });
+  } catch (error) {
+    logger.error('Analytics spending error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch spending data'
+    });
+  }
+});
+
+/**
+ * GET /api/analytics/forecast
+ * Get spending forecast for next 6 months
+ */
+router.get('/forecast', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const forecast = await analyticsService.getForecast(req.user!.id);
+    res.json({
+      success: true,
+      data: forecast
+    });
+  } catch (error) {
+    logger.error('Analytics forecast error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch forecast data'
+    });
+  }
+});
+
 export default router;

@@ -178,9 +178,10 @@ npm run dev
 - `POST /api/notifications/telegram` - Send Telegram notification
 
 #### Analytics
-- `GET /api/analytics/dashboard` - Dashboard statistics
-- `GET /api/analytics/spending` - Spending trends
-- `GET /api/analytics/forecast` - Spending forecast
+- `GET /api/analytics/summary` - Get spend analytics summary and trends
+- `GET /api/analytics/budgets` - Get user budgets
+- `GET /api/analytics/spending` - Get spending trends and monthly breakdown
+- `GET /api/analytics/forecast` - Get spending forecast for next 6 months
 
 ## Implementation Roadmap
 

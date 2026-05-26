@@ -6,6 +6,7 @@ members = [
   "contracts/subscription_logging",
   "contracts/virtual-card",
   "contracts/escrow",
+  "contracts/agent-registry",
 ]
 
 [workspace.dependencies]

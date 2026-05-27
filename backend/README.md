@@ -529,6 +529,8 @@ On RPC failure, the service retries with exponential backoff (3 attempts). After
 
 - `backend/ARCHITECTURE.md` — architecture decisions and service map
 - `backend/docs/RATE_LIMITING.md` — comprehensive rate limiting documentation
+- `backend/docs/PERFORMANCE_INDEXES_IMPLEMENTATION.md` — performance indexes documentation
+- `backend/docs/PERFORMANCE_INDEXES_QUERY_PLANS.md` — query plans and benchmarking
 - `backend/docs/RENEWAL_EXECUTION.md` — renewal execution flow
 - `backend/BILLING_SIMULATION_API.md` — billing simulation details
 - `backend/SUBSCRIPTION_API.md` — subscription API reference

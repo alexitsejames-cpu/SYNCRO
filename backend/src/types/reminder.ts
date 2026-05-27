@@ -105,6 +105,8 @@ export interface UserPreferences {
   quiet_hours_end: string; // HH:MM format
   quiet_hours_timezone: string; // IANA timezone identifier
   critical_alerts_only: boolean;
+  calendar_sync_enabled: boolean;
+  calendar_export_reminders: boolean;
   updated_at: string;
 }
 

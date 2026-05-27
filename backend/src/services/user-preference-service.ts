@@ -21,6 +21,8 @@ export class UserPreferenceService {
         quiet_hours_end: '08:00',
         quiet_hours_timezone: 'UTC',
         critical_alerts_only: true,
+        calendar_sync_enabled: false,
+        calendar_export_reminders: true,
     };
 
     /**

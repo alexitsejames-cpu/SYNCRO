@@ -5,6 +5,10 @@ const updateMock = jest.fn();
 const fromImplementation = (tableName: string) => {
   console.log('FROM MOCK CALLED for table', tableName);
 
+  if (tableName === 'audit_logs') {
+    return { insert: jest.fn().mockResolvedValue({ error: null }) };
+  }
+
   if (tableName !== 'api_keys') {
     return undefined;
   }
@@ -65,10 +69,17 @@ jest.mock('../src/config/logger', () => ({
   default: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
+const auditInsertMock = jest.fn().mockResolvedValue({ error: null });
+jest.mock('../src/services/audit-service', () => ({
+  auditApiKeyEvent: jest.fn().mockResolvedValue(undefined),
+  auditService: { insertEntry: auditInsertMock },
+}));
+
 import express from 'express';
 import request from 'supertest';
 import apiKeysRoutes from '../src/routes/api-keys';
 import { supabase } from '../src/config/database';
+import { auditApiKeyEvent } from '../src/services/audit-service';
 
 describe('/api/keys routes', () => {
   let app: express.Application;
@@ -108,6 +119,11 @@ describe('/api/keys routes', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.key).toMatch(/^sk_[0-9a-f]{64}$/);
     expect((supabase as any).__mocks.insertMock).toHaveBeenCalled();
+    expect(auditApiKeyEvent).toHaveBeenCalledWith(
+      'api_key.created',
+      userId,
+      expect.objectContaining({ keyName: 'my-service', scopes: ['subscriptions:read', 'subscriptions:write'] }),
+    );
   });
 
   it('lists API keys for user', async () => {
@@ -122,7 +138,7 @@ describe('/api/keys routes', () => {
     expect((supabase as any).__mocks.selectMock).toHaveBeenCalled();
   });
 
-  it('revokes an API key', async () => {
+  it('revokes an API key and emits audit event', async () => {
     (supabase as any).__mocks.selectMock.mockResolvedValueOnce({ data: { id: 'key-id' }, error: null });
     (supabase as any).__mocks.updateMock.mockResolvedValue({ data: { id: 'key-id', revoked: true }, error: null });
 
@@ -132,6 +148,11 @@ describe('/api/keys routes', () => {
     expect(res.body.success).toBe(true);
     expect((supabase as any).__mocks.selectMock).toHaveBeenCalled();
     expect((supabase as any).__mocks.updateMock).toHaveBeenCalled();
+    expect(auditApiKeyEvent).toHaveBeenCalledWith(
+      'api_key.revoked',
+      userId,
+      expect.objectContaining({ keyId: 'key-id' }),
+    );
   });
 
   it('returns usage stats', async () => {

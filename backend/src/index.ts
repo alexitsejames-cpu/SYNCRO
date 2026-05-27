@@ -53,6 +53,7 @@ import { adminAuth } from './middleware/admin';
 import { createAdminLimiter, RateLimiterFactory } from './middleware/rate-limit-factory';
 import { scheduleAutoResume } from './jobs/auto-resume';
 import giftCardLedgerRoutes from './routes/gift-card-ledger';
+import notificationDeadLetterRoutes from './routes/notification-dead-letter';
 import { errorHandler } from './middleware/errorHandler';
 import { swaggerSpec } from './swagger';
 
@@ -126,6 +127,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/digest', digestRoutes);
 app.use('/api/mfa', mfaRoutes);
 app.use('/api/notifications/push', pushNotificationRoutes);
+app.use('/api/notifications/dead-letter', notificationDeadLetterRoutes);
 app.use('/api/exchange-rates', createExchangeRatesRouter(exchangeRateService));
 app.use('/api/gift-card-ledger', giftCardLedgerRoutes);
 

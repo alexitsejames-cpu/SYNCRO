@@ -1,6 +1,7 @@
 import logger from '../config/logger';
 import { NotificationPayload, DeliveryResult } from '../types/reminder';
 import { ExternalServiceClient } from '../utils/external-service-client';
+import { withRetry, NonRetryableError } from '../utils/retry';
 import { sanitizeUrl } from '../utils/sanitize-url';
 
 export interface TelegramConfig {
@@ -25,6 +26,30 @@ export class TelegramBotService {
     if (!this.botToken && process.env.NODE_ENV !== 'development') {
       logger.warn('[TelegramBotService] Telegram bot token not configured. Telegram notifications will not be sent.');
     }
+  }
+
+  /**
+   * Determine whether a Telegram send failure should be retried.
+   */
+  private isRetryableError(error: unknown): boolean {
+    if (error instanceof NonRetryableError) {
+      return false;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const nonRetryablePatterns = [
+      /bot was blocked/i,
+      /chat not found/i,
+      /unauthorized/i,
+      /forbidden/i,
+      /bad request/i,
+      /status 400/i,
+      /status 401/i,
+      /status 403/i,
+      /status 404/i,
+    ];
+
+    return !nonRetryablePatterns.some((pattern) => pattern.test(errorMessage));
   }
 
   /**
@@ -339,7 +364,7 @@ export class TelegramBotService {
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isRetryable = !(error instanceof NonRetryableError);
+      const isRetryable = this.isRetryableError(error);
 
       logger.error(`[TelegramBotService] Failed to send message to user ${userId}:`, errorMessage);
 
@@ -434,7 +459,7 @@ ${factorsText}
       return {
         success: false,
         error: errorMessage,
-        metadata: { retryable: !(error instanceof NonRetryableError) },
+        metadata: { retryable: this.isRetryableError(error) },
       };
     }
   }

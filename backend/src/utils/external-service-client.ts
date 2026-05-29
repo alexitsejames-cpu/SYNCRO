@@ -70,12 +70,19 @@ export class ExternalServiceClient {
             signal: controller.signal,
           });
 
-          if (!response.ok) {
+          if (!response) {
+            throw new Error(`External service ${this.serviceName} returned no response`);
+          }
+
+          const responseOk = typeof response.ok === 'boolean' ? response.ok : true;
+          const responseStatus = typeof response.status === 'number' ? response.status : 200;
+
+          if (!responseOk) {
             // Some status codes should not be retried (e.g., 400, 401, 403, 404)
-            if (response.status >= 400 && response.status < 500) {
-              throw new NonRetryableError(`External service ${this.serviceName} returned status ${response.status}`);
+            if (responseStatus >= 400 && responseStatus < 500) {
+              throw new NonRetryableError(`External service ${this.serviceName} returned status ${responseStatus}`);
             }
-            throw new Error(`External service ${this.serviceName} returned status ${response.status}`);
+            throw new Error(`External service ${this.serviceName} returned status ${responseStatus}`);
           }
 
           const data = await response.json() as T;
